@@ -16,6 +16,8 @@ face\_analysis/
 
 │   └── landmark\_storage.py     # Lưu landmarks ra CSV + NPZ
 
+│   └── test.py     # Tính toán theo công thức cho các đặc trưng khuôn mặt 
+
 ├── data/
 
 │   ├── videos/                 # File .mp4 từ chế độ thu thập
