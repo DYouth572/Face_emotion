@@ -238,6 +238,9 @@ def run_face_analysis():
     prep      = Preprocessor()
     analyzer  = FaceAnalyzer(fps=30)
 
+    emotion_detector = EmotionDetector(analyze_every_n_frames=30)
+    frame_count = 0
+
     if not camera.open():
         print("[Lỗi] Không thể mở Camera.")
         return
@@ -245,20 +248,44 @@ def run_face_analysis():
     try:
         while True:
             ret, frame_bgr = camera.read()
-            if not ret: break
+            if not ret:
+                break
+
+            frame_count += 1
 
             frame_rgb = prep.prepare_for_mediapipe(prep.bgr_to_rgb(frame_bgr))
             h, w = frame_bgr.shape[:2]
-            
+
+            box = detector.get_primary_face(frame_rgb)
             raw_landmarks = extractor.extract(frame_rgb)
             display_frame = frame_bgr.copy()
 
             # ĐÃ SỬA: Chỉ cần check có raw_landmarks là chạy, không check len()
             if raw_landmarks:
                 display_frame = extractor.draw_landmarks(display_frame, raw_landmarks)
+
+                # Vẽ box mặt nếu có
+                if box:
+                    cv2.rectangle(display_frame,
+                                  (box['x1'], box['y1']),
+                                  (box['x2'], box['y2']),
+                                  (0, 255, 0), 2)
                 
                 coords = extractor.to_pixel_coords(raw_landmarks, w, h)
                 analysis_result = analyzer.analyze_frame(coords)
+
+                # ===== PHẦN CỦA LAM hehehe: DEEPFACE EMOTION =====
+                emotion_label = "Detecting..."
+                confidence = 0.0
+
+                if box:
+                    face_roi = detector.crop_face(frame_rgb, box, padding=0.2)
+                    emotion_label, confidence = emotion_detector.detect(face_roi, frame_count)
+
+                # ===== HIỂN THỊ CẢM XÚC =====
+                cv2.putText(display_frame,
+                            f"Emotion: {emotion_label} ({confidence:.1f}%)",
+                            (20, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 100, 255), 2)
                 
                 # In thông số EAR, MAR lên góc trái trên
                 cv2.putText(display_frame, f"EAR L: {analysis_result['EAR_L']:.2f} | EAR R: {analysis_result['EAR_R']:.2f}", 
@@ -268,7 +295,7 @@ def run_face_analysis():
                 
                 # In Trạng thái (Nhắm mắt, Ngáp...) xuống dưới
                 states = analysis_result["States"]
-                y_offset = 100
+                y_offset = 130
                 if len(states) == 0:
                     cv2.putText(display_frame, "Binh thuong", (20, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                 else:
@@ -283,6 +310,10 @@ def run_face_analysis():
         print(f"[Lỗi trong quá trình chạy]: {e}")
     finally:
         if hasattr(camera, 'cap') and camera.cap is not None: camera.cap.release()
+
+        detector.release()
+        extractor.release()
+        
         cv2.destroyAllWindows()
 
 # ══════════════════════════════════════════
