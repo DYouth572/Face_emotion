@@ -19,6 +19,8 @@ from landmark_storage    import LandmarkStorage
 # BỘ NÃO PHÂN TÍCH (MODE 5)
 from test import FaceAnalyzer
 
+from emotion_detector import EmotionDetector
+
 
 # ══════════════════════════════════════════
 # CHẾ ĐỘ 1: Realtime
