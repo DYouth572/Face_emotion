@@ -1,5 +1,7 @@
 # Ứng dụng AI trong trích chọn đặc trưng khuôn mặt và biểu cảm người học
 
+CHÚ Ý: dùng Python phiên bản 3.10.0 (là ổn định nhất, phiên bản 3.11.x cũng được, nhưng phiên bản cao hơn thì ko đc)
+
 ## Giới thiệu
 Đây là đồ án xây dựng một ứng dụng AI hỗ trợ **ghi nhận và hiển thị cảm xúc, các đặc trưng khuôn mặt của người học theo thời gian thực** thông qua webcam.  
 Hệ thống tập trung vào việc:
