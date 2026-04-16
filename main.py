@@ -147,7 +147,7 @@ def run_face_analysis():
     camera    = Camera(camera_index=0, width=640, height=480, fps=30)
     extractor = LandmarkExtractor()
     prep      = Preprocessor()
-    analyzer  = FaceAnalyzer(fps=30)
+    analyzer  = FaceAnalyzer(fps=30) # Khởi tạo bộ phân tích
 
     camera.open()
 
@@ -164,15 +164,28 @@ def run_face_analysis():
 
             if raw_landmarks:
                 h, w = frame_bgr.shape[:2]
+                # Vẽ các điểm landmark lên mặt để dễ quan sát
                 display = extractor.draw_landmarks(display, raw_landmarks)
 
                 coords = extractor.to_pixel_coords(raw_landmarks, w, h)
+                # Nhận kết quả phân tích từ test.py
                 result = analyzer.analyze_frame(coords)
 
-                cv2.putText(display, f"EAR: {result['EAR_L']:.2f}",
-                            (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 200, 0), 2)
+                # 1. Hiển thị các chỉ số cơ bản (Góc trái trên)
+                cv2.putText(display, f"EAR: {result['EAR_L']:.2f}", (20, 30), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+                cv2.putText(display, f"MAR: {result['MAR']:.2f}", (20, 60), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-            cv2.imshow("Mode 5: Face Analysis", display)
+                # 2. Hiển thị DANH SÁCH TRẠNG THÁI (Góc phải trên hoặc dưới EAR)
+                # Chúng ta sẽ vẽ mỗi trạng thái trên một dòng mới
+                y0, dy = 100, 30  # Tọa độ y bắt đầu và khoảng cách giữa các dòng
+                for i, state in enumerate(result['States']):
+                    color = (0, 0, 255) if "NGU GAT" in state or "NGAP" in state else (0, 255, 0)
+                    cv2.putText(display, f"> {state}", (20, y0 + i * dy), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+
+            cv2.imshow("Mode 5: Face Analysis System", display)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
