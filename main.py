@@ -122,15 +122,18 @@ def run_realtime():
 # ══════════════════════════════════════════
 
 def run_collect(duration=20, frame_step=3):
+    print("\n[COLLECT MODE] Quay {}s, cat moi {} frames\n".format(duration, frame_step))
+ 
     camera    = Camera(camera_index=0, width=640, height=480, fps=30)
     collector = DataCollector(video_dir="data/videos", frame_dir="data/frames")
-
+ 
     camera.open()
     try:
         video_path = collector.record_video(camera, duration_seconds=duration)
         session_dir, frame_paths = collector.extract_frames(
             video_path, frame_step=frame_step
         )
+        print("\n[COLLECT] Xong! {} frames -> {}".format(len(frame_paths), session_dir))
         return session_dir, frame_paths
     finally:
         camera.release()
@@ -141,35 +144,53 @@ def run_collect(duration=20, frame_step=3):
 # CHẾ ĐỘ 3: Offline
 # ══════════════════════════════════════════
 
-def run_offline(session_dir):
+def run_offline(session_dir, print_every_n=30):
     import glob
-
+ 
     frame_paths = sorted(glob.glob(os.path.join(session_dir, "*.jpg")))
     if not frame_paths:
+        print("[OFFLINE] Khong tim thay frames trong: {}".format(session_dir))
         return
-
-    extractor = LandmarkExtractor()
-    prep      = Preprocessor()
-
+ 
+    print("\n[OFFLINE MODE] Xu ly {} frames...\n".format(len(frame_paths)))
+ 
+    extractor    = LandmarkExtractor()
+    prep         = Preprocessor()
     session_name = os.path.basename(session_dir)
-    storage      = LandmarkStorage(base_dir="data/landmarks", session_name=session_name)
-
+    storage      = LandmarkStorage(base_dir="data/landmarks",
+                                   session_name=session_name)
+    detected = 0
+    missed   = 0
+ 
     for i, path in enumerate(frame_paths):
         frame_bgr, frame_rgb = prep.load_frame(path)
         if frame_bgr is None:
             continue
-
+ 
         frame_rgb = prep.prepare_for_mediapipe(frame_rgb)
-        h, w = frame_bgr.shape[:2]
-
+        h, w      = frame_bgr.shape[:2]
+        ts_ms     = i * 33
+ 
         raw_landmarks = extractor.extract(frame_rgb)
-
+ 
         if raw_landmarks:
             coords = extractor.to_pixel_coords(raw_landmarks, w, h)
-            storage.save_frame(i, coords, i * 33)
-
+            storage.save_frame(frame_id=i, coords_px=coords, timestamp_ms=ts_ms)
+            detected += 1
+            if i % print_every_n == 0:
+                print("Frame {:05d} OK | nose=({:.1f}, {:.1f})".format(
+                    i, coords[4, 0], coords[4, 1]))
+        else:
+            missed += 1
+            if i % print_every_n == 0:
+                print("Frame {:05d} MISS | khong detect duoc mat".format(i))
+ 
     storage.close()
     extractor.release()
+ 
+    print("\n[OFFLINE] Hoan tat: {} detect / {} miss / {} tong".format(
+        detected, missed, len(frame_paths)))
+    print("[OFFLINE] NPZ san sang: data/landmarks/{}/landmarks.npz".format(session_name))
 
 
 # ══════════════════════════════════════════
@@ -177,11 +198,20 @@ def run_offline(session_dir):
 # ══════════════════════════════════════════
 
 def run_inspect(npz_path):
-    data = LandmarkStorage.load_npz(npz_path)
+    data   = LandmarkStorage.load_npz(npz_path)
     coords = data['coords']
-
-    print(f"Số frames: {coords.shape[0]}")
-    print(f"Số landmarks: {coords.shape[1]}")
+ 
+    print("\n[INSPECT] {}".format(npz_path))
+    print("  So frames    : {}".format(coords.shape[0]))
+    print("  So landmarks : {}".format(coords.shape[1]))
+    print("  Toa do/diem  : {}  (x_px, y_px, z)".format(coords.shape[2]))
+    print("\n  Vi du frame 0:")
+    print("    Mui  (idx 4)  : x={:.2f}  y={:.2f}".format(
+        coords[0, 4, 0], coords[0, 4, 1]))
+    print("    Can  (idx 152): x={:.2f}  y={:.2f}".format(
+        coords[0, 152, 0], coords[0, 152, 1]))
+    print("    Tran (idx 10) : x={:.2f}  y={:.2f}".format(
+        coords[0, 10, 0], coords[0, 10, 1]))
 
 
 # ══════════════════════════════════════════
