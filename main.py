@@ -28,44 +28,89 @@ from deepface_emotion import EmotionDetector
 # ══════════════════════════════════════════
 
 def run_realtime():
+    print("\n[REALTIME MODE] Nhan:")
+    print("  'p' -> print landmarks ra console (summary)")
+    print("  'g' -> print theo nhom")
+    print("  's' -> bat dau / dung ghi landmarks")
+    print("  'q' -> thoat\n")
+ 
     camera    = Camera(camera_index=0, width=640, height=480, fps=30)
     detector  = FaceDetector(min_detection_confidence=0.6)
     extractor = LandmarkExtractor()
     prep      = Preprocessor()
-
+    storage   = None
+    recording = False
+    frame_count = 0
+ 
     camera.open()
-
+ 
     try:
         while True:
             ret, frame_bgr = camera.read()
             if not ret:
                 break
-
-            frame_rgb = prep.prepare_for_mediapipe(prep.bgr_to_rgb(frame_bgr))
-            display   = frame_bgr.copy()
-
-            box = detector.get_primary_face(frame_rgb)
+ 
+            frame_count += 1
+            h, w = frame_bgr.shape[:2]
+            ts_ms = int(time.time() * 1000)
+ 
+            frame_rgb = prep.bgr_to_rgb(frame_bgr)
+            frame_rgb = prep.prepare_for_mediapipe(frame_rgb)
+ 
+            box           = detector.get_primary_face(frame_rgb)
             raw_landmarks = extractor.extract(frame_rgb)
-
+            display       = frame_bgr.copy()
+ 
             if box:
                 cv2.rectangle(display,
                               (box['x1'], box['y1']),
                               (box['x2'], box['y2']),
                               (0, 255, 0), 2)
-
+ 
             if raw_landmarks:
-                h, w = frame_bgr.shape[:2]
                 coords = extractor.to_pixel_coords(raw_landmarks, w, h)
-
                 for x, y, z in coords[:468]:
                     cv2.circle(display, (int(x), int(y)), 1, (0, 200, 255), -1)
-
-            cv2.imshow("Mode 1: Realtime Landmark", display)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+ 
+                if recording and storage:
+                    storage.save_frame(frame_count, coords, ts_ms)
+ 
+                status = "468 lm  |  Frame #{}".format(frame_count)
+                if recording:
+                    status += "  [GHI]"
+                cv2.putText(display, status, (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 100), 2)
+            else:
+                cv2.putText(display, "Khong tim thay khuon mat", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 0, 255), 2)
+ 
+            cv2.putText(display, "P=print  G=groups  S=rec  Q=quit",
+                        (10, h - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
+ 
+            cv2.imshow("Luong 1: Landmark Extractor", display)
+ 
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
                 break
-
+            elif key == ord('p') and raw_landmarks:
+                extractor.print_landmarks(raw_landmarks, w, h, mode="summary")
+            elif key == ord('g') and raw_landmarks:
+                extractor.print_landmarks(raw_landmarks, w, h, mode="groups")
+            elif key == ord('s'):
+                if not recording:
+                    storage   = LandmarkStorage(base_dir="data/landmarks")
+                    recording = True
+                    print("[REALTIME] Bat dau ghi landmarks...")
+                else:
+                    recording = False
+                    storage.close()
+                    storage = None
+                    print("[REALTIME] Da dung ghi.")
+ 
     finally:
+        if recording and storage:
+            storage.close()
         camera.release()
         detector.release()
         extractor.release()
