@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd emotion/emotion && (.venv\\Scripts\\python -m app.main || py -3 -m app.main || python -m app.main)",
+    "dev:frontend": "cd frontend-AI && npm run dev"
+  }
+}
